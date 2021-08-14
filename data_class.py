@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
 
 
 @dataclass
@@ -13,7 +12,7 @@ class RaceBasicData(object):
     start_datetime: str
     place: str
     distance: int
-    orbit: int    
+    orbit: int
 
 
 @dataclass
@@ -22,7 +21,7 @@ class Player(object):
     come_from: str
     age: int
     period: int
-    rank: str    
+    rank: str
     frame_num: int
     car_num: int
     competitive_score: float
@@ -41,6 +40,9 @@ class Player(object):
     double_rate: float
     triple_rate: float
     gear_multiple: float
+    first_flg: str
+    second_flg: str
+    first_second_flg: str
 
 
 @dataclass
@@ -71,14 +73,14 @@ class Result(object):
 class RecentResultOne(object):
     grade: str
     place: str
-    results: list[Result] 
+    results: list[Result]
 
 
 @dataclass
 class RecentResult(object):
     section1: Result
     section2: Result
-    recent_result_ones: list[RecentResultOne] 
+    recent_result_ones: list[RecentResultOne]
 
 
 @dataclass

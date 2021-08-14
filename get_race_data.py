@@ -4,10 +4,10 @@ import os
 import platform
 import re
 import traceback
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 from datetime import datetime, timedelta
 from time import sleep
-from typing import TextIO
+from typing import Final, TextIO
 
 from bs4 import BeautifulSoup
 from selenium import webdriver
@@ -16,13 +16,14 @@ from tqdm import tqdm
 
 import data_class
 
-DRIVER_SITE: str = 'chromedriver.exe' if platform.system() == 'Windows' else '/Applications/chromedriver'
-CURRENT_DIR: str = 'race_data'
-ORIGINAL_URL: str = 'https://keirin.netkeiba.com/db/search_result/race.html?word=&start_year=none&start_mon=none&end_year=none&end_mon=none&jyo=&sort=1&submit='
-FILENAME: str = 'race_data'
-HEADER: str = (
-    'レースグループ名,レース名,グレード,ラウンド,開催日時,開催場所,距離,周回,1着,2着,'
-    '選手名,出身,年齢,期別,級班,枠番,車番,競走得点,脚質,S,B,逃げ,まくり,差し,マーク,1着,2着,3着,着外,勝率,2連対率,3連対率,ギヤ倍数,'
+DRIVER_SITE: Final[str] = 'chromedriver.exe' if platform.system() == 'Windows' \
+    else '/Applications/chromedriver'
+CURRENT_DIR: Final[str] = 'race_data'
+ORIGINAL_URL: Final[str] = 'https://keirin.netkeiba.com/db/search_result/race.html?word=&start_year=none&start_mon=none&end_year=none&end_mon=none&jyo=&sort=1&submit='
+FILENAME: Final[str] = 'race_data'
+HEADER: Final[str] = (
+    'レースグループ名,レース名,グレード,ラウンド,開催日時,開催場所,距離,周回,'
+    '選手名,出身,年齢,期別,級班,枠番,車番,競走得点,脚質,S,B,逃げ,まくり,差し,マーク,1着,2着,3着,着外,勝率,2連対率,3連対率,ギヤ倍数,1着フラグ,2着フラグ,2着以内フラグ,'
     '項目名_1,1着_1,2着_1,3着_1,着外_1,出走回数_1,勝率_1,2連対率_1,3連対率_1,'
     '項目名_2,1着_2,2着_2,3着_2,着外_2,出走回数_2,勝率_2,2連対率_2,3連対率_2,'
     '項目名_3,1着_3,2着_3,3着_3,着外_3,出走回数_3,勝率_3,2連対率_3,3連対率_3,'
@@ -82,7 +83,8 @@ def end_page_correction(driver: webdriver.Chrome, end_page_num: int) -> int:
     # 全ページ数の取得
     driver.find_element_by_link_text('最後').click()
     sleep(1)
-    total_page_num: int = int(driver.find_element_by_xpath('//a[@class="Page_Active"]').text)
+    total_page_num: int = int(driver.find_element_by_xpath(
+        '//a[@class="Page_Active"]').text)
     driver.get(ORIGINAL_URL)
     sleep(1)
 
@@ -156,10 +158,10 @@ def date_split(date_str: str) -> list[datetime]:
     dates.append(tdate)
     tdate_end = datetime.strptime(date_split[1], '%Y/%m/%d')
 
-    while(tdate<tdate_end):
+    while(tdate < tdate_end):
         tdate += timedelta(days=1)
         dates.append(tdate)
-    
+
     return dates
 
 
@@ -202,9 +204,11 @@ def get_race_basic_data(soup: BeautifulSoup, date: datetime, venue: str) -> data
     data_class.RaceBasicData
         RaceBasicDataクラスのインスタンス
     """
-    race_data_list: list[str] = soup.select_one('.Race_Data').get_text(strip=True).split()
+    race_data_list: list[str] = soup.select_one(
+        '.Race_Data').get_text(strip=True).split()
     hour_and_minute: list[str] = race_data_list[1].split(':')
-    tdate = date.replace(hour=int(hour_and_minute[0]), minute=int(hour_and_minute[1]))
+    tdate = date.replace(
+        hour=int(hour_and_minute[0]), minute=int(hour_and_minute[1]))
 
     race_basic_data = data_class.RaceBasicData(
         soup.select_one('.Race_GroupName').get_text(strip=True),
@@ -220,7 +224,7 @@ def get_race_basic_data(soup: BeautifulSoup, date: datetime, venue: str) -> data
     return race_basic_data
 
 
-def get_player_data(soup: BeautifulSoup) -> list[data_class.Player]:
+def get_player_data(soup: BeautifulSoup, ranking: tuple[int, int]) -> list[data_class.Player]:
     """
     レース基本データを取得し、Playerクラスのインスタンスのリストを返却する
 
@@ -235,13 +239,16 @@ def get_player_data(soup: BeautifulSoup) -> list[data_class.Player]:
         レースに参加する選手のPlayerクラスのインスタンスをリスト化する
     """
     player_data_list: list[data_class.Player] = []
-    player_list = soup.select_one('.RaceCard_Simple_Table_Static').select('.PlayerList')
+    player_list = soup.select_one(
+        '.RaceCard_Simple_Table_Static').select('.PlayerList')
 
     for player in player_list:
         # 出身・年齢の取得
-        come_from_age = player.select_one('.Player_InfoWrap.DispA').select_one('.PlayerFrom').get_text(strip=True).split()
+        come_from_age = player.select_one('.Player_InfoWrap.DispA').select_one(
+            '.PlayerFrom').get_text(strip=True).split()
         # 期別・級班の取得
-        period_rank = player.select_one('.Player_InfoWrap.DispA').dl.select_one('.PlayerClass').get_text(strip=True).split()
+        period_rank = player.select_one('.Player_InfoWrap.DispA').dl.select_one(
+            '.PlayerClass').get_text(strip=True).split()
         # 各種データの取得
         data_list = player.select('.RaceCardCell01')
 
@@ -249,15 +256,18 @@ def get_player_data(soup: BeautifulSoup) -> list[data_class.Player]:
         if '↓' in gear_multiple:
             gear_multiple = re.sub('^.+↓', '', gear_multiple)
 
+        car_num = int(data_list[1].get_text(strip=True))
+
         player_data_list.append(
             data_class.Player(
-                player.select_one('.Player_InfoWrap.DispA').select_one('.Player01').get_text(strip=True),
+                player.select_one('.Player_InfoWrap.DispA').select_one(
+                    '.Player01').get_text(strip=True),
                 come_from_age[0],
                 int(come_from_age[1].rstrip('歳')),
                 period_rank[0],
                 period_rank[1],
                 int(data_list[0].get_text(strip=True)),
-                int(data_list[1].get_text(strip=True)),
+                car_num,
                 float(data_list[3].get_text(strip=True)),
                 data_list[4].get_text(strip=True)[1:],
                 int(data_list[5].get_text(strip=True)),
@@ -273,7 +283,10 @@ def get_player_data(soup: BeautifulSoup) -> list[data_class.Player]:
                 float(data_list[15].get_text(strip=True).rstrip('%')),
                 float(data_list[16].get_text(strip=True).rstrip('%')),
                 float(data_list[17].get_text(strip=True).rstrip('%')),
-                float(gear_multiple)
+                float(gear_multiple),
+                '1' if car_num == ranking[0] else '0',
+                '1' if car_num == ranking[1] else '0',
+                '1' if car_num == ranking[0] or car_num == ranking[1] else '0'
             )
         )
 
@@ -294,20 +307,43 @@ def get_data_analysis(soup: BeautifulSoup) -> list[data_class.DataAnalysis]:
     list[data_class.DataAnalysis]
         レースに参加する選手のDataAnalysisクラスのインスタンスをリスト化する
     """
-    datas = soup.select_one('.Data01_Table.Default tbody').select('tr')
+    datas = soup.select_one('#RaceDataList tbody').select('tr')
 
     data_analysis_list: list[data_class.DataAnalysis] = []
     data_analysis_one_list: list[data_class.DataAnalysisOne] = []
 
     for i, data in enumerate(datas):
-        if 1 <= i % 5 <= 4:
+        if data.select_one('.Player_Link'):
+            if i > 0:
+                for _ in range(4 - len(data_analysis_one_list)):
+                    data_analysis_one_list.append(
+                        data_class.DataAnalysisOne(
+                            '',
+                            0,
+                            0,
+                            0,
+                            0,
+                            0,
+                            0,
+                            0,
+                            0
+                        )
+                    )
+                data_analysis_list.append(
+                    data_class.DataAnalysis(
+                        data_analysis_one_list
+                    )
+                )
+                data_analysis_one_list = []
+        else:
             name: str = ''
-            num_list: list[int] = []        
+            num_list: list[int] = []
             rate_list: list[float] = []
             for td in data.select('td'):
                 try:
                     if '%' in td.get_text():
-                        rate_list.append(float(td.get_text(strip=True).rstrip('%')))
+                        rate_list.append(
+                            float(td.get_text(strip=True).rstrip('%')))
                     else:
                         num_list.append(int(td.get_text(strip=True)))
                 except ValueError:
@@ -321,15 +357,6 @@ def get_data_analysis(soup: BeautifulSoup) -> list[data_class.DataAnalysis]:
                 )
             )
 
-        else:
-            if i > 0:
-                data_analysis_list.append(
-                    data_class.DataAnalysis(
-                        data_analysis_one_list
-                    )
-                )
-                data_analysis_one_list = []
-    
     data_analysis_list.append(
         data_class.DataAnalysis(
             data_analysis_one_list
@@ -354,7 +381,7 @@ def get_recent_result(soup: BeautifulSoup) -> list[data_class.RecentResult]:
         レースに参加する選手のRecentResultクラスのインスタンスをリスト化する
     """
     recent_result_list: list[data_class.RecentResult] = []
-    
+
     player_data_list = soup.select('.RaceCard_Result_Table .PlayerList')
 
     for player_data in player_data_list:
@@ -392,12 +419,15 @@ def get_recent_result(soup: BeautifulSoup) -> list[data_class.RecentResult]:
 
                 exist_section = False
 
-                grade = result.select_one('.Icon_GradeType').get_text(strip=True)
+                grade = result.select_one(
+                    '.Icon_GradeType').get_text(strip=True)
                 place = result.select_one('.JyoName').get_text(strip=True)
 
             elif result.select_one('.RaceName'):
-                race_name = result.select_one('.RaceName').get_text(strip=True).replace('\u3000', '')
-                order_of_arrival = result.select_one('.result_no').get_text(strip=True)
+                race_name = result.select_one('.RaceName').get_text(
+                    strip=True).replace('\u3000', '')
+                order_of_arrival = result.select_one(
+                    '.result_no').get_text(strip=True)
 
                 result_list.append(
                     data_class.Result(
@@ -407,7 +437,8 @@ def get_recent_result(soup: BeautifulSoup) -> list[data_class.RecentResult]:
                 )
 
             elif result.get_text(strip=True) != '':
-                race_order = result.a.get_text(strip=True).replace('\u3000', '')
+                race_order = result.a.get_text(
+                    strip=True).replace('\u3000', '')
                 if section_count == 0 and exist_section:
                     section1 = data_class.Result(
                         race_order[:-1],
@@ -491,14 +522,15 @@ def get_match_result(soup: BeautifulSoup, player_num: int) -> list[data_class.Ma
 
     if len(player_data_list) > 0:
         for player_data in player_data_list:
-            result = player_data.select_one('.Player_Info + td').get_text(strip=True)
+            result = player_data.select_one(
+                '.Player_Info + td').get_text(strip=True)
             win_lose = result.split('-')
             match_result_list.append(
                 data_class.MatchResult(
                     int(win_lose[0]),
                     int(win_lose[1])
                 )
-            ) 
+            )
     else:
         for _ in range(player_num):
             match_result_list.append(
@@ -506,7 +538,7 @@ def get_match_result(soup: BeautifulSoup, player_num: int) -> list[data_class.Ma
                     0,
                     0
                 )
-            ) 
+            )
 
     return match_result_list
 
@@ -539,8 +571,7 @@ def transform_data_analysis_csv(data_analysis_list: list[data_class.DataAnalysis
                     data_csv += ',' + str(d_3)
         data_analysis_csv_list.append(data_csv)
 
-    return data_analysis_csv_list    
-
+    return data_analysis_csv_list
 
 
 def transform_recent_result_csv(recent_result_list: list[data_class.RecentResult]) -> list[str]:
@@ -599,7 +630,8 @@ def date_and_race_page_scraping(driver,
     date_and_race_url: str = driver.current_url
 
     # 開催日リンクの取得
-    date_list = driver.find_elements_by_xpath('//div[@class="Tab_RaceDaySelect p00"]/ul/li/a')
+    date_list = driver.find_elements_by_xpath(
+        '//div[@class="Tab_RaceDaySelect p00"]/ul/li/a')
 
     # 日付の分割
     dates: list[datetime] = date_split(date_and_venue[0])
@@ -608,38 +640,45 @@ def date_and_race_page_scraping(driver,
     for date_count in range(len(date_list)):
 
         # 開催日リンクの取得(古いセッション参照対応用)
-        trans_date_list = driver.find_elements_by_xpath('//div[@class="Tab_RaceDaySelect p00"]/ul/li/a')
+        trans_date_list = driver.find_elements_by_xpath(
+            '//div[@class="Tab_RaceDaySelect p00"]/ul/li/a')
 
         # 開催日ページへの遷移
         trans_date_list[date_count].click()
         sleep(1)
 
         # 開催日単位レース詳細ページ要素の取得(古いセッション参照対応用)
-        date_and_race_list = driver.find_elements_by_xpath('//div[@class="RaceList_SlideBoxItem"]')
+        date_and_race_list = driver.find_elements_by_xpath(
+            '//div[@class="RaceList_SlideBoxItem"]')
 
         # 開催日単位レース詳細ページリンクの取得
-        race_list = date_and_race_list[date_count].find_elements_by_tag_name('a')
+        race_list = date_and_race_list[date_count].find_elements_by_tag_name(
+            'a')
 
         # レース詳細ページ単位での処理
         for race_num in range(len(race_list)):
             # 開催日単位レース詳細ページ要素の取得(古いセッション参照対応用)
-            trans_date_and_race_list = driver.find_elements_by_xpath('//div[@class="RaceList_SlideBoxItem"]')
+            trans_date_and_race_list = driver.find_elements_by_xpath(
+                '//div[@class="RaceList_SlideBoxItem"]')
 
             # 開催日単位レース詳細ページリンクの取得(古いセッション参照対応用)
-            trans_race_list = trans_date_and_race_list[date_count].find_elements_by_tag_name('a')
+            trans_race_list = trans_date_and_race_list[date_count].find_elements_by_tag_name(
+                'a')
 
             # レース詳細ページへの遷移
             trans_race_list[race_num].click()
             sleep(1)
             soup = BeautifulSoup(driver.page_source, 'html.parser')
 
+            race_info = soup.select_one('.Race_Infomation_Box')
             # 1着・2着の取得
-            if soup.select_one('.Umatan').td.get_text(strip=True) == '':
+            if race_info and race_info.get_text(strip=True) == '本レースは中止となりました':
                 # レース一覧ページへ戻る
                 driver.get(date_and_race_url)
                 sleep(1)
                 # 開催日ページへの遷移
-                trans_date_list = driver.find_elements_by_xpath('//div[@class="Tab_RaceDaySelect p00"]/ul/li/a')
+                trans_date_list = driver.find_elements_by_xpath(
+                    '//div[@class="Tab_RaceDaySelect p00"]/ul/li/a')
                 trans_date_list[date_count].click()
                 sleep(1)
                 continue
@@ -657,7 +696,8 @@ def date_and_race_page_scraping(driver,
                                                                             date_and_venue[1])
 
             # 出場選手データの取得
-            player_data_list: list[data_class.Player] = get_player_data(soup)
+            player_data_list: list[data_class.Player] = get_player_data(soup,
+                                                                        ranking)
 
             # データ分析ページへの遷移
             driver.find_element_by_link_text('データ分析').click()
@@ -665,7 +705,8 @@ def date_and_race_page_scraping(driver,
             soup = BeautifulSoup(driver.page_source, 'html.parser')
 
             # データ分析データの取得
-            data_analysis_list: list[data_class.DataAnalysis] = get_data_analysis(soup)
+            data_analysis_list: list[data_class.DataAnalysis] = get_data_analysis(
+                soup)
 
             # 直近成績ページへの遷移
             driver.find_element_by_link_text('直近成績').click()
@@ -673,7 +714,8 @@ def date_and_race_page_scraping(driver,
             soup = BeautifulSoup(driver.page_source, 'html.parser')
 
             # 直近成績データの取得
-            recent_result_list: list[data_class.RecentResult] = get_recent_result(soup)
+            recent_result_list: list[data_class.RecentResult] = get_recent_result(
+                soup)
 
             # 対戦表ページへの遷移
             driver.find_element_by_link_text('対戦表').click()
@@ -685,27 +727,33 @@ def date_and_race_page_scraping(driver,
                                                                                len(player_data_list))
 
             # データ分析データのcsv変換
-            data_analysis_csv_list: list[str] = transform_data_analysis_csv(data_analysis_list)
+            data_analysis_csv_list: list[str] = transform_data_analysis_csv(
+                data_analysis_list)
 
             # 直近成績データのcsv変換
-            recent_result_csv_list: list[str] = transform_recent_result_csv(recent_result_list)
+            recent_result_csv_list: list[str] = transform_recent_result_csv(
+                recent_result_list)
 
             # ファイルへの書き込み
             for i, player_data in enumerate(player_data_list):
                 race_data_file.write(
-                    ','.join([str(d) for d in asdict(race_basic_data).values()]) +
-                    ',' + str(ranking[0]) + ',' + str(ranking[1]) + 
-                    ',' + ','.join([str(d) for d in asdict(player_data).values()]) + 
-                    ',' + data_analysis_csv_list[i] +
-                    ',' + recent_result_csv_list[i] +
-                    ',' + ','.join([str(d) for d in asdict(match_result_list[i]).values()]) +  '\n'
+                    ','.join([str(d)
+                              for d in asdict(race_basic_data).values()])
+                    + ',' + ','.join([str(d)
+                                      for d in asdict(player_data).values()])
+                    + ',' + data_analysis_csv_list[i]
+                    + ',' + recent_result_csv_list[i]
+                    + ',' + ','.join([str(d)
+                                      for d in asdict(match_result_list[i]).values()])
+                    + '\n'
                 )
 
             # レース一覧ページへ戻る
             driver.get(date_and_race_url)
             sleep(1)
             # 開催日ページへの遷移
-            trans_date_list = driver.find_elements_by_xpath('//div[@class="Tab_RaceDaySelect p00"]/ul/li/a')
+            trans_date_list = driver.find_elements_by_xpath(
+                '//div[@class="Tab_RaceDaySelect p00"]/ul/li/a')
             trans_date_list[date_count].click()
             sleep(1)
 
@@ -715,15 +763,16 @@ def main() -> None:
         # Seleniumの設定・操作
         options: Options = Options()
         options.add_argument('--headless')
-        driver: webdriver.Chrome = webdriver.Chrome(DRIVER_SITE, options=options)
+        driver: webdriver.Chrome = webdriver.Chrome(
+            DRIVER_SITE, options=options)
         # driver: webdriver.Chrome = webdriver.Chrome(DRIVER_SITE)
         driver.get(ORIGINAL_URL)
         sleep(1)
 
         # Webスクレイピング開始・終了ページの設定
-        start_page_num: int = 7
-        end_page_num: int = 8
-        
+        start_page_num: int = 1
+        end_page_num: int = 30
+
         # Webスクレイピング終了ページの補正
         end_page_num = end_page_correction(driver, end_page_num)
 
@@ -733,20 +782,24 @@ def main() -> None:
         race_group_url: str = driver.current_url
 
         for page_num in tqdm(range(start_page_num, end_page_num + 1)):
-            race_data_file: TextIO = open(os.path.join(CURRENT_DIR, FILENAME + str(page_num) + '.csv'), 'w')
+            race_data_file: TextIO = open(os.path.join(
+                CURRENT_DIR, FILENAME + str(page_num) + '.csv'), 'w')
             race_data_file.write(HEADER)
 
             # レースグループリンクの取得
-            race_group_list = driver.find_elements_by_xpath('//ul[@class="CommonList_01"]/li/div/a')
+            race_group_list = driver.find_elements_by_xpath(
+                '//ul[@class="CommonList_01"]/li/div/a')
 
             # レースグループ単位での処理
             for race_group_count in range(len(race_group_list)):
                 # 開催日と開催場所の取得
                 soup = BeautifulSoup(driver.page_source, 'html.parser')
-                date_and_venue: list[tuple[str, str]] = get_date_and_venue(soup)
+                date_and_venue: list[tuple[str, str]
+                                     ] = get_date_and_venue(soup)
 
                 # レース一覧ページへの遷移
-                trans_race_group_list = driver.find_elements_by_xpath('//ul[@class="CommonList_01"]/li/div/a')
+                trans_race_group_list = driver.find_elements_by_xpath(
+                    '//ul[@class="CommonList_01"]/li/div/a')
                 trans_race_group_list[race_group_count].click()
                 sleep(1)
 
@@ -765,7 +818,7 @@ def main() -> None:
                 sleep(1)
                 race_group_url = driver.current_url
 
-    except Exception as e:
+    except Exception:
         print('エラー発生!')
         print(driver.current_url)
         traceback.print_exc()
@@ -776,4 +829,3 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
-

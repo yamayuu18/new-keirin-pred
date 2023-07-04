@@ -672,7 +672,7 @@ def date_and_race_page_scraping(driver,
 
             race_info = soup.select_one('.Race_Infomation_Box')
             # 1着・2着の取得
-            if race_info and race_info.get_text(strip=True) == '本レースは中止となりました':
+            if race_info and '本レース' in race_info.get_text(strip=True):
                 # レース一覧ページへ戻る
                 driver.get(date_and_race_url)
                 sleep(1)
@@ -763,15 +763,16 @@ def main() -> None:
         # Seleniumの設定・操作
         options: Options = Options()
         options.add_argument('--headless')
-        driver: webdriver.Chrome = webdriver.Chrome(
-            DRIVER_SITE, options=options)
+        driver: webdriver.Chrome = webdriver.Chrome(options=options)
+        # driver: webdriver.Chrome = webdriver.Chrome(
+        #     DRIVER_SITE, options=options)
         # driver: webdriver.Chrome = webdriver.Chrome(DRIVER_SITE)
         driver.get(ORIGINAL_URL)
         sleep(1)
 
         # Webスクレイピング開始・終了ページの設定
         start_page_num: int = 1
-        end_page_num: int = 30
+        end_page_num: int = 1
 
         # Webスクレイピング終了ページの補正
         end_page_num = end_page_correction(driver, end_page_num)
